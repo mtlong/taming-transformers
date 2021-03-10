@@ -1,0 +1,5 @@
+.vscode
+logs
+__pycache__
+taming_transformers.egg-info
+taming/modules/autoencoder/lpips/vgg.pth
