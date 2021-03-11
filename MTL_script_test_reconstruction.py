@@ -128,7 +128,25 @@ def reconstruction_pipeline(url, size=320):
         x[0])), custom_to_pil(x1[0]), custom_to_pil(x2[0]), x3, titles=titles)
     return img
 
+def read_frames(gif_path):
+    pass
 
+def preprocess_img(img, size):
+    pass
+
+def save_frames(img_out_list, output_folder):
+    pass
+
+def reconstruct_video(gif_path, output_folder, size = 256):
+    img_list = read_frames(gif_path)
+    img_out_list = []
+    for i in range(len(img_list)):
+        img = img_list[i] 
+        x1 = reconstruct_with_vqgan(preprocess_img(img, size=size), model16384)
+        frame_out = custom_to_pil(x1[0])
+        img_out_list.append(frame_out)
+    save_frames(img_out_list, output_folder)
+    return
 
 ############################## MAIN SCRIPT ######################################
 
@@ -151,4 +169,18 @@ img = reconstruction_pipeline(url='https://heibox.uni-heidelberg.de/f/7bb608381a
 ## Generate result on a test image using size 512
 reconstruction_pipeline(url = "https://heibox.uni-heidelberg.de/f/5cfd15de5d104d6fbce4/?dl=1", size=512)
 
-## TODO: Generate results on videos.
+## Generate results on videos.
+gif_folder = "/mnt/HDD1/home/mtlong/workspace/2021/Video_Inpainting/Sand_Box/taming-transformers/data/Cinemagraph_Samples/"
+output_root_256 = ""
+output_root_512 = ""
+
+file_list = os.listdir(gif_folder)
+
+for vid_name in file_list:
+    vid_path = gif_folder + vid_name
+    output_folder_256 = output_root_256 + vid_name[0:-4]
+    os.system("mkdir -p " + output_folder_256)
+    reconstruct_video(vid_path, output_folder_256, size = 256)
+    output_folder_512 = output_root_512 + vid_name[0:-4]
+    os.system("mkdir -p " + output_folder_512)
+    reconstruct_video(vid_path, output_folder_512, size = 512)
