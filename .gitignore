@@ -4,4 +4,4 @@ __pycache__
 taming_transformers.egg-info
 taming/modules/autoencoder/lpips/vgg.pth
 data/Cinemagraph_Samples
-
+results

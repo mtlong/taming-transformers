@@ -12,6 +12,7 @@ import torchvision.transforms.functional as TF
 import yaml
 from omegaconf import OmegaConf
 from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import VideoFileClip
 
 from taming.models.vqgan import VQModel
 from dall_e import map_pixels, unmap_pixels, load_model
@@ -129,21 +130,41 @@ def reconstruction_pipeline(url, size=320):
     return img
 
 def read_frames(gif_path):
-    pass
+    clip = VideoFileClip(gif_path)
+    frames = []
+    for frame in clip.iter_frames():
+        ## Convert to PIL
+        frame_pil = PIL.Image.fromarray(frame)
+        frames.append(frame_pil)
+    return frames
 
-def preprocess_img(img, size):
-    pass
+def preprocess_img(img, target_image_size):
+    s = min(img.size)        
+    r = target_image_size / s
+    s = (round(r * img.size[1]), round(r * img.size[0]))
+    img = TF.resize(img, s, interpolation=PIL.Image.LANCZOS)
+    # img = TF.center_crop(img, output_size=2 * [target_image_size])
+    img = torch.unsqueeze(T.ToTensor()(img), 0)
+    return map_pixels(img)
 
 def save_frames(img_out_list, output_folder):
-    pass
+    for i in range(len(img_out_list)):
+        frame = img_out_list[i]
+        frame.save(output_folder + "frame_" + str(i) + ".png")
+    return
 
-def reconstruct_video(gif_path, output_folder, size = 256):
+def reconstruct_video(gif_path, output_folder, model_type, model, size = 256):
     img_list = read_frames(gif_path)
     img_out_list = []
     for i in range(len(img_list)):
-        img = img_list[i] 
-        x1 = reconstruct_with_vqgan(preprocess_img(img, size=size), model16384)
-        frame_out = custom_to_pil(x1[0])
+        img = img_list[i]
+        x = preprocess_img(img, size)
+        x = x.to(DEVICE) 
+        if model_type == "VQGAN":   
+            x1 = reconstruct_with_vqgan(preprocess_vqgan(x), model)
+            frame_out = custom_to_pil(x1[0])
+        else:
+            frame_out = reconstruct_with_dalle(x, model[0], model[1])
         img_out_list.append(frame_out)
     save_frames(img_out_list, output_folder)
     return
@@ -164,23 +185,62 @@ model1024 = load_vqgan(
 model16384 = load_vqgan(
     config16384, ckpt_path="logs/vqgan_imagenet_f16_16384/checkpoints/last.ckpt").to(DEVICE)
 
-## Generate result on a test image using size 384
-img = reconstruction_pipeline(url='https://heibox.uni-heidelberg.de/f/7bb608381aae4539ba7a/?dl=1', size=384)
-## Generate result on a test image using size 512
-reconstruction_pipeline(url = "https://heibox.uni-heidelberg.de/f/5cfd15de5d104d6fbce4/?dl=1", size=512)
+# ## Generate result on a test image using size 384
+# img = reconstruction_pipeline(url='https://heibox.uni-heidelberg.de/f/7bb608381aae4539ba7a/?dl=1', size=384)
+# ## Generate result on a test image using size 512
+# reconstruction_pipeline(url = "https://heibox.uni-heidelberg.de/f/5cfd15de5d104d6fbce4/?dl=1", size=512)
 
 ## Generate results on videos.
 gif_folder = "/mnt/HDD1/home/mtlong/workspace/2021/Video_Inpainting/Sand_Box/taming-transformers/data/Cinemagraph_Samples/"
-output_root_256 = ""
-output_root_512 = ""
-
 file_list = os.listdir(gif_folder)
+
+
+### Generate results with DALL-E
+model_type = "DALLE"
+model = [encoder_dalle, decoder_dalle]
+
+output_root_256 = "./results/Cinemagraph_Samples/DALLE/vid_reconstruction_256/"
+output_root_512 = "./results/Cinemagraph_Samples/DALLE/vid_reconstruction_512/"
 
 for vid_name in file_list:
     vid_path = gif_folder + vid_name
-    output_folder_256 = output_root_256 + vid_name[0:-4]
+    output_folder_256 = output_root_256 + vid_name[0:-4] + "/"
     os.system("mkdir -p " + output_folder_256)
-    reconstruct_video(vid_path, output_folder_256, size = 256)
-    output_folder_512 = output_root_512 + vid_name[0:-4]
+    reconstruct_video(vid_path, output_folder_256, model_type, model, size = 256)
+    output_folder_512 = output_root_512 + vid_name[0:-4] + "/"
     os.system("mkdir -p " + output_folder_512)
-    reconstruct_video(vid_path, output_folder_512, size = 512)
+    reconstruct_video(vid_path, output_folder_512, model_type, model, size = 512)
+
+
+### Generate results with VQGAN codebook 16384
+model_type = "VQGAN"
+model = model16384
+
+output_root_256 = "./results/Cinemagraph_Samples/VQGAN_16384/vid_reconstruction_256/"
+output_root_512 = "./results/Cinemagraph_Samples/VQGAN_16384/vid_reconstruction_512/"
+
+for vid_name in file_list:
+    vid_path = gif_folder + vid_name
+    output_folder_256 = output_root_256 + vid_name[0:-4] + "/"
+    os.system("mkdir -p " + output_folder_256)
+    reconstruct_video(vid_path, output_folder_256, model_type, model, size = 256)
+    output_folder_512 = output_root_512 + vid_name[0:-4] + "/"
+    os.system("mkdir -p " + output_folder_512)
+    reconstruct_video(vid_path, output_folder_512, model_type, model, size = 512)
+
+
+### Generate results with VQGAN codebook 1024
+model_type = "VQGAN"
+model = model1024
+
+output_root_256 = "./results/Cinemagraph_Samples/VQGAN_1024/vid_reconstruction_256/"
+output_root_512 = "./results/Cinemagraph_Samples/VQGAN_1024/vid_reconstruction_512/"
+
+for vid_name in file_list:
+    vid_path = gif_folder + vid_name
+    output_folder_256 = output_root_256 + vid_name[0:-4] + "/"
+    os.system("mkdir -p " + output_folder_256)
+    reconstruct_video(vid_path, output_folder_256, model_type, model, size = 256)
+    output_folder_512 = output_root_512 + vid_name[0:-4] + "/"
+    os.system("mkdir -p " + output_folder_512)
+    reconstruct_video(vid_path, output_folder_512, model_type, model, size = 512)

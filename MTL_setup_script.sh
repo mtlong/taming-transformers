@@ -19,5 +19,6 @@ wget 'https://cdn.openai.com/dall-e/encoder.pkl' -O 'logs/DALLE/checkpoints/enco
 wget 'https://cdn.openai.com/dall-e/decoder.pkl' -O 'logs/DALLE/checkpoints/decoder.pkl'
 
 pip install omegaconf==2.0.0
+pip install moviepy
 
 pip install git+https://github.com/openai/DALL-E.git &> /dev/null
